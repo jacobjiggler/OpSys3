@@ -19,11 +19,61 @@ struct dir_struct {
   char copy_dir[1000];
 };
 
+
+//RESTORE + RESTORE PRINTS
+//also if you have time
+  //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
 void *backup_folder(void * arguments){
   struct dir_struct *dirs = arguments;
   printf("%s \n", dirs->copy_dir);
+  // declare array of threads
+  // int size = 0
+  //for all files
+    //if normal file
+      //if directory
+        //if not named .mybackup
+          //if folder already exists in .mybackup
+            //call backup folder on that directory and keep thread number
+            // with added folder name to both copy path and current_directory path
+            //add thread to array
+            //print "[thread threadnumber] Backing up foldername"
+          //else
+            //create folder in backup
+            //increment total_subdirectories
+            ////call backup folder on that directory and keep thread number
+            // with added folder name to both copy path and current_directory path
+            //add thread to array
+            //print "[thread threadnumber] Backing up foldername"
+            //print "[thread threadnumber] Created foldername"
 
-  //code here
+
+      //else
+        // bool already_exists = false
+        //if already exists(dont forget to check for .bak)
+          //bool already_exists = true
+          //delete old backup file
+        //call backup_file and keep threadnumber
+        //with added file name and .bak to both copy path and current directory
+        // if already_exists
+          //print "[thread threadnumber] WARNING: filename exists (overwriting!)"
+        //print "[thread threadnumber] backing up filename ..."
+        //add thread to array
+//for loop through threads array
+  //join all the threads one at a time
+
+
+  return NULL;
+}
+void *backup_file(void * arguments){
+  struct dir_struct *dirs = arguments;
+  printf("%s \n", dirs->copy_dir);
+  //int bytes = lstat to get size of file
+  // open new file with filename supplied
+  //use read() and write() to copy file over with .bak
+  //print "[thread threadnumber] copied x bytes from current dir to copy dir"
+  //increment total bytes by bytes
+  //increment total files by 1
+
   return NULL;
 }
 int main( int argc, char *argv[] ) {
@@ -33,14 +83,16 @@ int main( int argc, char *argv[] ) {
         printf( "Wrong number of arguments" );
         return 1;
     }
-  // pass in directories without copy
 
   pthread_t thread;
-  mkdir(".mybackup",1777);
+  if .mybackup doesnt exist
+    mkdir(".mybackup",1777);
   struct dir_struct dirs;
   getcwd(dirs.current_dir,1000);
   getcwd(dirs.copy_dir,1000);
   strcat(dirs.copy_dir, "/.mybackup");
+
+
   int rc = pthread_create( &thread, NULL, backup_folder, (void *)&dirs);
   if ( rc != 0 )
   {
@@ -59,7 +111,7 @@ int main( int argc, char *argv[] ) {
       /* end the entire process? */
       exit( EXIT_FAILURE );
     }
-
+    //print "successfully backed up total files (total bytes) and totalsubdirectories subdirectory"
 
   return 1;
 }
