@@ -1,2 +1,2 @@
-gcc -Wall-pthread -o mybackup mybackup.c
+gcc -Wall -pthread -o mybackup mybackup.c
 ./mybackup.out

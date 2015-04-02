@@ -22,32 +22,98 @@ struct dir_struct {
 
 //RESTORE + RESTORE PRINTS
 //also if you have time
+  //check for bad file permissions
+  //confirm that totals are not overwriting each other and maybe use mutex locks on them
   //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
 void *backup_folder(void * arguments){
   struct dir_struct *dirs = arguments;
   printf("%s \n", dirs->copy_dir);
-  // declare array of threads
-  // int size = 0
+  pthread_t threads[1000];
+  int size = 0;
+  struct dirent *dp;
+  DIR *dfd;
+
+  char *dir ;
+  char *copy_dir;
+  dir = dirs->current_dir;
+  copy_dir = dirs->copy_dir
+  if ((dfd = opendir(dir)) == NULL)
+  {
+   fprintf(stderr, "Can't open %s\n", dir);
+   return 0;
+  }
+  if ((copy_dfd = opendir(copy_dir)) == NULL)
+  {
+   fprintf(stderr, "Can't open %s\n", copy_dir);
+   return 0;
+  }
+  char filedir[200];
+  char copyfiledir[200];
+  while ((dp = readdir(dfd)) != NULL)
+{
+    struct stat buf;
+    struct stat copybuf;
+    sprintf( filedir , "%s/%s",dir,dp->d_name);
+    printf("%s \n", filedir);
+    //set copydir HERE by
+      //extract filename from filedir
+        //by (new char of (len(filedir) - len(current_dir))
+      //append copy_dir to copyfiledir
+      //append filename to copyfiledir
+    if( stat(filedir,&buf ) == -1 )
+    {
+     printf("Unable to stat file: %s\n",filedir) ;
+     continue ;
+    }
+    //if object is directory
+    if ( ( buf.st_mode & S_IFMT ) == S_IFDIR )
+    {
+      //ignore folders named these
+      if (strcmp(filedir,".mybackup") && strcmp(filedir,".") && strcmp(filedir,"..")){
+
+
+      }
+    }
+    //if object is normal file with permission
+    else {
+      if ( S_ISREG( buf.st_mode ) )
+      {
+        if ( buf.st_mode & ( S_IXUSR | S_IXGRP | S_IXOTH ) )
+        {
+          //make sure file you are backing up does not end in .bak
+          int len = strlen(filedir);
+          if (len > 3){
+            const char *last_four = &str[len-4];
+            if(strcmp(".bak",last_four)){
+
+
+            }
+          }
+        }
+      }
+    }
+  //lstat here
+}
   //for all files
-    //if normal file
-      //if directory
-        //if not named .mybackup
-          //if folder already exists in .mybackup
-            //call backup folder on that directory and keep thread number
-            // with added folder name to both copy path and current_directory path
-            //add thread to array
-            //print "[thread threadnumber] Backing up foldername"
-          //else
-            //create folder in backup
-            //increment total_subdirectories
-            ////call backup folder on that directory and keep thread number
-            // with added folder name to both copy path and current_directory path
-            //add thread to array
-            //print "[thread threadnumber] Backing up foldername"
-            //print "[thread threadnumber] Created foldername"
+    //if directory
+      //if not named .mybackup or . or ..
+        //if folder already exists in .mybackup
+          //call backup folder on that directory and keep thread number
+          // with added folder name to both copy path and current_directory path
+          //add thread to array
+          //print "[thread threadnumber] Backing up foldername"
+        //else
+          //create folder in backup
+          //increment total_subdirectories
+          ////call backup folder on that directory and keep thread number
+          // with added folder name to both copy path and current_directory path
+          //add thread to array
+          //print "[thread threadnumber] Backing up foldername"
+          //print "[thread threadnumber] Created foldername"
 
 
-      //else
+    //else
+      //if normal file and not ending in .bak
         // bool already_exists = false
         //if already exists(dont forget to check for .bak)
           //bool already_exists = true
@@ -58,8 +124,9 @@ void *backup_folder(void * arguments){
           //print "[thread threadnumber] WARNING: filename exists (overwriting!)"
         //print "[thread threadnumber] backing up filename ..."
         //add thread to array
-//for loop through threads array
-  //join all the threads one at a time
+
+  //for loop through threads array
+    //join all the threads one at a time
 
 
   return NULL;
@@ -85,8 +152,8 @@ int main( int argc, char *argv[] ) {
     }
 
   pthread_t thread;
-  if .mybackup doesnt exist
-    mkdir(".mybackup",1777);
+  //doesn't matter if .mybackup already exists. mkdir will return -1 if it doesnt
+  mkdir(".mybackup",1777);
   struct dir_struct dirs;
   getcwd(dirs.current_dir,1000);
   getcwd(dirs.copy_dir,1000);
