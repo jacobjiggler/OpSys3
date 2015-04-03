@@ -22,11 +22,25 @@ struct dir_struct {
 
 //RESTORE + RESTORE PRINTS
 //also if you have time
-  //mutex locks on totals
+  //mutex locks on totals or join output
   //check for memory leaks
   //check for bad file permissions
   //confirm that totals are not overwriting each other and maybe use mutex locks on them
   //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
+
+  void *backup_file(void * arguments){
+    struct dir_struct *dirs = arguments;
+    printf("I am backing up this file -> %s \n", dirs->copy_dir);
+    //int bytes = lstat to get size of file
+    // open new file with filename supplied
+    //use read() and write() to copy file over with .bak
+    //print "[thread threadnumber] copied x bytes from current dir to copy dir"
+    //increment total bytes by bytes
+    //increment total files by 1
+
+    return NULL;
+  }
+
 void *backup_folder(void * arguments){
   struct dir_struct *dirs = arguments;
   pthread_t threads[500];
@@ -39,9 +53,9 @@ void *backup_folder(void * arguments){
   char *copy_dir;
   dir = dirs->current_dir;
   copy_dir = dirs->copy_dir;
-  printf("name of dirs passed into function: %s %s \n", dir, copy_dir);
+  //printf("name of dirs passed into function: %s %s \n", dir, copy_dir);
   if ((strcmp(&dir[strlen(dir)-2],"..") ==0) || (strcmp(&copy_dir[strlen(copy_dir)-2],"..") == 0)){
-    printf("gotcha \n");
+    printf("gotcha1 \n");
     return 0;
   }
   if ((dfd = opendir(dir)) == NULL)
@@ -53,21 +67,17 @@ void *backup_folder(void * arguments){
 
   while ((dp = readdir(dfd)) != NULL)
 {
-    printf("\n");
     struct stat buf;
     struct stat copybuf;
-    struct dir_struct tempstruct;
     char tempdir[200];
     char tempcopydir[200];
     sprintf(tempdir , "%s/%s",dir,dp->d_name);
-    printf("tempstruct current dir: %s \n", tempdir);
     //get location of new file by appending filename to copydir
     strcpy(tempcopydir, copy_dir);
     strcat( tempcopydir, &tempdir[strlen(dir)]);
-    printf("tempstruct copy dir: %s \n", tempcopydir);
     int len = strlen(tempdir);
     if (!strcmp(&tempdir[len-2],"..")){
-      printf("gotcha2 %s \n", &tempdir[len-2]);
+      //printf("gotcha2 %s \n", &tempdir[len-2]);
       continue;
     }
     if( stat(tempdir,&buf ) == -1 )
@@ -80,8 +90,7 @@ void *backup_folder(void * arguments){
     {
       //ignore folders named these
       if (((len < 9) || strcmp(&tempdir[len-9],".mybackup")) && strcmp(&tempdir[len-1],".") && strcmp(&tempdir[len-2],"..")){
-        printf("Copy folder from %s \n", tempdir);
-        printf("Copy folder to %s \n", tempcopydir);
+
         //if folder already exists in .mybackup
         if( stat(tempcopydir,&copybuf ) == 0 )
         {
@@ -101,7 +110,7 @@ void *backup_folder(void * arguments){
           }
           threads[size] = thread;
           size++;
-          printf("[thread %d] Backing up %s \n", (int)thread, &tempdir[strlen(dir)]);
+          printf("[thread %lu] Backing up %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
         }
         //doesnt exist
         else{
@@ -124,8 +133,8 @@ void *backup_folder(void * arguments){
           }
           threads[size] = thread;
           size++;
-          printf("[thread %d] Backing up %s \n", (int)thread, &tempdir[strlen(dir)]);
-          printf("[thread %d] created %s \n", (int)thread, &tempdir[strlen(dir)]);
+          printf("[thread %lu] Backing up %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
+          printf("[thread %lu] created %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
 
 
         }
@@ -142,8 +151,35 @@ void *backup_folder(void * arguments){
         {
           //make sure file you are backing up does not end in .bak
           if (len > 3){
-            const char *last_four = &tempstruct.current_dir[len-4];
+            const char *last_four = &tempdir[len-4];
             if(strcmp(".bak",last_four)){
+              int already_exists = 0;
+              strcat( tempcopydir, ".bak");
+              if (stat(tempcopydir,&copybuf ) == 0){
+                printf("%s deleted \n", tempcopydir);
+                already_exists = 1;
+                //delete old backup file
+              }
+              struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
+              strcpy(tempstruct->current_dir,tempdir);
+              strcpy(tempstruct->copy_dir,tempcopydir);
+              structs[size2] = tempstruct;
+              size2++;
+              pthread_t thread;
+              int rc = pthread_create( &thread, NULL, backup_file, (void *)tempstruct);
+              if ( rc != 0 )
+              {
+                // pthreads functions do NOT use errno or perror()
+                fprintf( stderr, "pthread_create() failed (%d): %s",
+                         rc, strerror( rc ) );
+                return 0;
+              }
+              threads[size] = thread;
+              size++;
+              if (already_exists){
+                printf("[thread %lu] WARNING: %s exists (overwriting!) \n", (unsigned long)thread, &tempdir[strlen(dir)]);
+              }
+              printf("[thread %lu] Backing up %s ...\n", (unsigned long)thread, &tempdir[strlen(dir)]);
 
 
             }
@@ -151,44 +187,14 @@ void *backup_folder(void * arguments){
         }
       }
     }
-  //lstat here
 }
-  //for all files
-    //if directory
-      //if not named .mybackup or . or ..
-        //if folder already exists in .mybackup
-          //call backup folder on that directory and keep thread number
-          // with added folder name to both copy path and current_directory path
-          //add thread to array
-          //print "[thread threadnumber] Backing up foldername"
-        //else
-          //create folder in backup
-          //increment total_subdirectories
-          ////call backup folder on that directory and keep thread number
-          // with added folder name to both copy path and current_directory path
-          //add thread to array
-          //print "[thread threadnumber] Backing up foldername"
-          //print "[thread threadnumber] Created foldername"
 
 
-    //else
-      //if normal file and not ending in .bak
-        // bool already_exists = false
-        //if already exists(dont forget to check for .bak)
-          //bool already_exists = true
-          //delete old backup file
-        //call backup_file and keep threadnumber
-        //with added file name and .bak to both copy path and current directory
-        // if already_exists
-          //print "[thread threadnumber] WARNING: filename exists (overwriting!)"
-        //print "[thread threadnumber] backing up filename ..."
-        //add thread to array
 
 
     //join all the threads one at a time
     int itr = 0;
     while (itr < size){
-      printf("itr %d \n", itr);
 
       int rc2 = pthread_join( threads[itr], NULL );
       if ( rc2 != 0 )
@@ -210,18 +216,7 @@ void *backup_folder(void * arguments){
     }
   return NULL;
 }
-void *backup_file(void * arguments){
-  struct dir_struct *dirs = arguments;
-  printf("%s \n", dirs->copy_dir);
-  //int bytes = lstat to get size of file
-  // open new file with filename supplied
-  //use read() and write() to copy file over with .bak
-  //print "[thread threadnumber] copied x bytes from current dir to copy dir"
-  //increment total bytes by bytes
-  //increment total files by 1
 
-  return NULL;
-}
 int main( int argc, char *argv[] ) {
   if ( argc > 2 ) /* argc should be 1 or 2 for correct execution */
     {
