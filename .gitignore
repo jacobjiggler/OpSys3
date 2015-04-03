@@ -25,3 +25,5 @@
 *.hex
 # Debug files
 *.dSYM/
+.mybackup/
+.mybackup/*

@@ -22,6 +22,8 @@ struct dir_struct {
 
 //RESTORE + RESTORE PRINTS
 //also if you have time
+  //mutex locks on totals
+  //check for memory leaks
   //check for bad file permissions
   //confirm that totals are not overwriting each other and maybe use mutex locks on them
   //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
@@ -32,7 +34,6 @@ void *backup_folder(void * arguments){
   int size = 0;
   struct dirent *dp;
   DIR *dfd;
-  DIR *copy_dfd;
   char *dir;
   char *copy_dir;
   dir = dirs->current_dir;
@@ -42,35 +43,70 @@ void *backup_folder(void * arguments){
    fprintf(stderr, "Can't open %s\n", dir);
    return 0;
   }
-  if ((copy_dfd = opendir(copy_dir)) == NULL)
-  {
-   fprintf(stderr, "Can't open %s\n", copy_dir);
-   return 0;
-  }
-  char filedir[200];
-  char copyfiledir[200];
+
+
   while ((dp = readdir(dfd)) != NULL)
 {
     struct stat buf;
     struct stat copybuf;
-    sprintf( filedir , "%s/%s",dir,dp->d_name);
-    printf("%s \n", filedir);
+    struct dir_struct tempstruct;
+    sprintf(tempstruct.current_dir , "%s/%s",dir,dp->d_name);
+    printf("%s \n", tempstruct.current_dir);
     //get location of new file by appending filename to copydir
-    strcpy(copyfiledir, copy_dir);
-    strcat( copyfiledir, &filedir[strlen(dir)]);
-    printf("%s \n", copyfiledir);
+    strcpy(tempstruct.copy_dir, copy_dir);
+    strcat( tempstruct.copy_dir, &tempstruct.current_dir[strlen(dir)]);
+    printf("%s \n", tempstruct.copy_dir);
+    int len = strlen(tempstruct.current_dir);
 
-
-    if( stat(filedir,&buf ) == -1 )
+    if( stat(tempstruct.current_dir,&buf ) == -1 )
     {
-     printf("Unable to stat file: %s\n",filedir) ;
+     printf("Unable to stat file: %s\n",tempstruct.current_dir) ;
      continue ;
     }
     //if object is directory
     if ( ( buf.st_mode & S_IFMT ) == S_IFDIR )
     {
       //ignore folders named these
-      if (strcmp(filedir,".mybackup") && strcmp(filedir,".") && strcmp(filedir,"..")){
+      if (((len < 9) || strcmp(&tempstruct.current_dir[len-9],".mybackup")) && strcmp(&tempstruct.current_dir[len-1],".") && strcmp(&tempstruct.current_dir[len-2],"..")){
+
+        //if folder already exists in .mybackup
+        if( stat(tempstruct.copy_dir,&copybuf ) == 0 )
+        {
+
+          pthread_t thread;
+          int rc = pthread_create( &thread, NULL, backup_folder, (void *)&tempstruct);
+          if ( rc != 0 )
+          {
+            // pthreads functions do NOT use errno or perror()
+            fprintf( stderr, "pthread_create() failed (%d): %s",
+                     rc, strerror( rc ) );
+            return EXIT_FAILURE;
+          }
+          threads[size] = thread;
+          size++;
+          printf("[thread %d] Backing up %s \n", (int)thread, &tempstruct.current_dir[strlen(dir)]);
+        }
+        //doesnt exist
+        else{
+          mkdir(tempstruct.copy_dir,S_IRWXU);
+          total_subdirectories++;
+          pthread_t thread;
+          int rc = pthread_create( &thread, NULL, backup_folder, (void *)&tempstruct);
+          if ( rc != 0 )
+          {
+            // pthreads functions do NOT use errno or perror()
+            fprintf( stderr, "pthread_create() failed (%d): %s",
+                     rc, strerror( rc ) );
+            return EXIT_FAILURE;
+          }
+          threads[size] = thread;
+          size++;
+          printf("[thread %d] Backing up %s \n", (int)thread, &tempstruct.current_dir[strlen(dir)]);
+          printf("[thread %d] created %s \n", (int)thread, &tempstruct.current_dir[strlen(dir)]);
+
+
+        }
+
 
 
       }
@@ -82,9 +118,8 @@ void *backup_folder(void * arguments){
         if ( buf.st_mode & ( S_IXUSR | S_IXGRP | S_IXOTH ) )
         {
           //make sure file you are backing up does not end in .bak
-          int len = strlen(filedir);
           if (len > 3){
-            const char *last_four = &filedir[len-4];
+            const char *last_four = &tempstruct.current_dir[len-4];
             if(strcmp(".bak",last_four)){
 
 
