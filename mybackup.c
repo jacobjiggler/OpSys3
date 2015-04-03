@@ -29,9 +29,7 @@ struct dir_struct {
   //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
 void *backup_folder(void * arguments){
   struct dir_struct *dirs = arguments;
-  printf("%s \n", dirs->copy_dir);
-
-  pthread_t threads[1000];
+  pthread_t threads[200];
   int size = 0;
   struct dirent *dp;
   DIR *dfd;
@@ -39,7 +37,8 @@ void *backup_folder(void * arguments){
   char *copy_dir;
   dir = dirs->current_dir;
   copy_dir = dirs->copy_dir;
-  if (!strcmp(&dir[strlen(dir)-2],"..") || !strcmp(&copy_dir[strlen(copy_dir)-2],"..")){
+  printf("name of dirs passed into function: %s %s \n", dir, copy_dir);
+  if ((strcmp(&dir[strlen(dir)-2],"..") ==0) || (strcmp(&copy_dir[strlen(copy_dir)-2],"..") == 0)){
     printf("gotcha \n");
     return 0;
   }
@@ -52,19 +51,19 @@ void *backup_folder(void * arguments){
 
   while ((dp = readdir(dfd)) != NULL)
 {
-
+    printf("\n");
     struct stat buf;
     struct stat copybuf;
     struct dir_struct tempstruct;
     sprintf(tempstruct.current_dir , "%s/%s",dir,dp->d_name);
-    printf("%s \n", tempstruct.current_dir);
+    printf("tempstruct current dir: %s \n", tempstruct.current_dir);
     //get location of new file by appending filename to copydir
     strcpy(tempstruct.copy_dir, copy_dir);
     strcat( tempstruct.copy_dir, &tempstruct.current_dir[strlen(dir)]);
-    printf("%s \n", tempstruct.copy_dir);
+    printf("tempstruct copy dir: %s \n", tempstruct.copy_dir);
     int len = strlen(tempstruct.current_dir);
     if (!strcmp(&tempstruct.current_dir[len-2],"..")){
-      printf("gotcha2 \n");
+      printf("gotcha2 %s \n", &tempstruct.current_dir[len-2]);
       continue;
     }
     if( stat(tempstruct.current_dir,&buf ) == -1 )
@@ -77,7 +76,8 @@ void *backup_folder(void * arguments){
     {
       //ignore folders named these
       if (((len < 9) || strcmp(&tempstruct.current_dir[len-9],".mybackup")) && strcmp(&tempstruct.current_dir[len-1],".") && strcmp(&tempstruct.current_dir[len-2],"..")){
-
+        printf("Copy folder from %s \n", &tempstruct.current_dir);
+        printf("Copy folder to %s \n", &tempstruct.copy_dir);
         //if folder already exists in .mybackup
         if( stat(tempstruct.copy_dir,&copybuf ) == 0 )
         {
@@ -97,8 +97,7 @@ void *backup_folder(void * arguments){
         }
         //doesnt exist
         else{
-          printf("I Pinch %s \n", &tempstruct.current_dir[strlen(dir)]);
-          printf("%s \n", &tempstruct.copy_dir);
+
 
           mkdir(tempstruct.copy_dir,S_IRWXU);
 
@@ -179,7 +178,7 @@ void *backup_folder(void * arguments){
 
     int itr = 0;
     while (itr < size){
-      printf("%d \n", itr);
+      printf("itr %d \n", itr);
 
       int rc2 = pthread_join( threads[itr], NULL );
       if ( rc2 != 0 )
