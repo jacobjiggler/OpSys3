@@ -30,6 +30,7 @@ struct dir_struct {
 void *backup_folder(void * arguments){
   struct dir_struct *dirs = arguments;
   printf("%s \n", dirs->copy_dir);
+
   pthread_t threads[1000];
   int size = 0;
   struct dirent *dp;
@@ -38,6 +39,10 @@ void *backup_folder(void * arguments){
   char *copy_dir;
   dir = dirs->current_dir;
   copy_dir = dirs->copy_dir;
+  if (!strcmp(&dir[strlen(dir)-2],"..") || !strcmp(&copy_dir[strlen(copy_dir)-2],"..")){
+    printf("gotcha \n");
+    return 0;
+  }
   if ((dfd = opendir(dir)) == NULL)
   {
    fprintf(stderr, "Can't open %s\n", dir);
@@ -47,6 +52,7 @@ void *backup_folder(void * arguments){
 
   while ((dp = readdir(dfd)) != NULL)
 {
+
     struct stat buf;
     struct stat copybuf;
     struct dir_struct tempstruct;
@@ -57,7 +63,10 @@ void *backup_folder(void * arguments){
     strcat( tempstruct.copy_dir, &tempstruct.current_dir[strlen(dir)]);
     printf("%s \n", tempstruct.copy_dir);
     int len = strlen(tempstruct.current_dir);
-
+    if (!strcmp(&tempstruct.current_dir[len-2],"..")){
+      printf("gotcha2 \n");
+      continue;
+    }
     if( stat(tempstruct.current_dir,&buf ) == -1 )
     {
      printf("Unable to stat file: %s\n",tempstruct.current_dir) ;
@@ -88,7 +97,11 @@ void *backup_folder(void * arguments){
         }
         //doesnt exist
         else{
+          printf("I Pinch %s \n", &tempstruct.current_dir[strlen(dir)]);
+          printf("%s \n", &tempstruct.copy_dir);
+
           mkdir(tempstruct.copy_dir,S_IRWXU);
+
           total_subdirectories++;
           pthread_t thread;
           int rc = pthread_create( &thread, NULL, backup_folder, (void *)&tempstruct);
@@ -164,7 +177,22 @@ void *backup_folder(void * arguments){
   //for loop through threads array
     //join all the threads one at a time
 
+    int itr = 0;
+    while (itr < size){
+      printf("%d \n", itr);
 
+      int rc2 = pthread_join( threads[itr], NULL );
+      if ( rc2 != 0 )
+        {
+          //pthreads functions do NOT use errno or perror()
+          fprintf( stderr, "pthread_join() failed (%d): %s", rc2, strerror( rc2 ) );
+
+          //end the entire process? //
+          exit( EXIT_FAILURE );
+        }
+
+      itr++;
+    }
   return NULL;
 }
 void *backup_file(void * arguments){
@@ -213,6 +241,12 @@ int main( int argc, char *argv[] ) {
 
       /* end the entire process? */
       exit( EXIT_FAILURE );
+    }
+    if (total_subdirectories != 1){
+      printf("successfully backed up %d (%d) and %d subdirectories \n", total_files, total_bytes, total_subdirectories);
+    }
+    else {
+      printf("successfully backed up %d (%d) and %d subdirectory \n", total_files, total_bytes, total_subdirectories);
     }
     //print "successfully backed up total files (total bytes) and totalsubdirectories subdirectory"
 
