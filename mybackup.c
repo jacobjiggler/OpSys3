@@ -32,11 +32,11 @@ void *backup_folder(void * arguments){
   int size = 0;
   struct dirent *dp;
   DIR *dfd;
-
-  char *dir ;
+  DIR *copy_dfd;
+  char *dir;
   char *copy_dir;
   dir = dirs->current_dir;
-  copy_dir = dirs->copy_dir
+  copy_dir = dirs->copy_dir;
   if ((dfd = opendir(dir)) == NULL)
   {
    fprintf(stderr, "Can't open %s\n", dir);
@@ -55,11 +55,12 @@ void *backup_folder(void * arguments){
     struct stat copybuf;
     sprintf( filedir , "%s/%s",dir,dp->d_name);
     printf("%s \n", filedir);
-    //set copydir HERE by
-      //extract filename from filedir
-        //by (new char of (len(filedir) - len(current_dir))
-      //append copy_dir to copyfiledir
-      //append filename to copyfiledir
+    //get location of new file by appending filename to copydir
+    strcpy(copyfiledir, copy_dir);
+    strcat( copyfiledir, &filedir[strlen(dir)]);
+    printf("%s \n", copyfiledir);
+
+
     if( stat(filedir,&buf ) == -1 )
     {
      printf("Unable to stat file: %s\n",filedir) ;
@@ -83,7 +84,7 @@ void *backup_folder(void * arguments){
           //make sure file you are backing up does not end in .bak
           int len = strlen(filedir);
           if (len > 3){
-            const char *last_four = &str[len-4];
+            const char *last_four = &filedir[len-4];
             if(strcmp(".bak",last_four)){
 
 
@@ -153,7 +154,7 @@ int main( int argc, char *argv[] ) {
 
   pthread_t thread;
   //doesn't matter if .mybackup already exists. mkdir will return -1 if it doesnt
-  mkdir(".mybackup",1777);
+  mkdir(".mybackup",S_IRWXU);
   struct dir_struct dirs;
   getcwd(dirs.current_dir,1000);
   getcwd(dirs.copy_dir,1000);
