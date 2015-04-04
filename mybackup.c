@@ -22,7 +22,7 @@ struct dir_struct {
 
 //RESTORE + RESTORE PRINTS
 //also if you have time
-  //mutex locks on totals or join output
+  //mutex locks on totals or use join output
   //check for memory leaks
   //check for bad file permissions
   //confirm that totals are not overwriting each other and maybe use mutex locks on them
@@ -30,13 +30,44 @@ struct dir_struct {
 
   void *backup_file(void * arguments){
     struct dir_struct *dirs = arguments;
+    char *file = dirs->current_dir;
+    char *copy_file = dirs->copy_dir;
     printf("I am backing up this file -> %s \n", dirs->copy_dir);
-    //int bytes = lstat to get size of file
-    // open new file with filename supplied
-    //use read() and write() to copy file over with .bak
-    //print "[thread threadnumber] copied x bytes from current dir to copy dir"
+    struct stat buf;
+    if(stat(file, &buf) != 0) {
+      printf("error with stating file %s \n", file);
+    }
+    int bytes = buf.st_size;
+    char ch;
+    FILE *source, *target;
+    source = fopen(file, "r");
+    if( source == NULL )
+  {
+     printf("error reading...\n");
+     return 0;
+  }
+  target = fopen(copy_file, "w");
+
+   if( target == NULL )
+   {
+      fclose(source);
+      printf("error writing...\n");
+      return 0;
+   }
+
+   while( ( ch = fgetc(source) ) != EOF )
+      fputc(ch, target);
+
+
+   fclose(source);
+   fclose(target);
+   printf("[thread %lu] Copied %d bytes from %s to %s \n", (unsigned long)pthread_self(), bytes, file, copy_file);
+
+
     //increment total bytes by bytes
+    total_bytes += bytes;
     //increment total files by 1
+    total_files += 1;
 
     return NULL;
   }
@@ -156,9 +187,8 @@ void *backup_folder(void * arguments){
               int already_exists = 0;
               strcat( tempcopydir, ".bak");
               if (stat(tempcopydir,&copybuf ) == 0){
-                printf("%s deleted \n", tempcopydir);
                 already_exists = 1;
-                //delete old backup file
+                remove(tempcopydir);
               }
               struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
               strcpy(tempstruct->current_dir,tempdir);
