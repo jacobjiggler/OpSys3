@@ -106,19 +106,23 @@ void *backup_folder(void * arguments){
     //get location of new file by appending filename to copydir
     strcpy(tempcopydir, copy_dir);
     strcat( tempcopydir, &tempdir[strlen(dir)]);
+    printf("%s \n", tempdir);
     int len = strlen(tempdir);
     if (!strcmp(&tempdir[len-2],"..")){
       //printf("gotcha2 %s \n", &tempdir[len-2]);
       continue;
     }
+
     if( stat(tempdir,&buf ) == -1 )
     {
      printf("Unable to stat file: %s\n",tempdir) ;
      continue ;
     }
+
     //if object is directory
     if ( ( buf.st_mode & S_IFMT ) == S_IFDIR )
     {
+
       //ignore folders named these
       if (((len < 9) || strcmp(&tempdir[len-9],".mybackup")) && strcmp(&tempdir[len-1],".") && strcmp(&tempdir[len-2],"..")){
 
@@ -178,8 +182,10 @@ void *backup_folder(void * arguments){
     else {
       if ( S_ISREG( buf.st_mode ) )
       {
-        if ( buf.st_mode & ( S_IXUSR | S_IXGRP | S_IXOTH ) )
+
+        if ( buf.st_mode & ( S_IRUSR | S_IRGRP | S_IROTH ) )
         {
+
           //make sure file you are backing up does not end in .bak
           if (len > 3){
             const char *last_four = &tempdir[len-4];
@@ -285,10 +291,10 @@ int main( int argc, char *argv[] ) {
     }
     free(dirs);
     if (total_subdirectories != 1){
-      printf("successfully backed up %d (%d) and %d subdirectories \n", total_files, total_bytes, total_subdirectories);
+      printf("successfully backed up %d files (%d bytes) and %d subdirectories \n", total_files, total_bytes, total_subdirectories);
     }
     else {
-      printf("successfully backed up %d (%d) and %d subdirectory \n", total_files, total_bytes, total_subdirectories);
+      printf("successfully backed up %d files(%d bytes) and %d subdirectory \n", total_files, total_bytes, total_subdirectories);
     }
     //print "successfully backed up total files (total bytes) and totalsubdirectories subdirectory"
 
