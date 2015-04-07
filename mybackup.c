@@ -14,25 +14,35 @@
 int total_files = 0;
 int total_bytes = 0;
 int total_subdirectories = 0;
+pthread_mutex_t locksubdirstats;
+pthread_mutex_t lockfilestats;
 struct dir_struct {
   char current_dir[1000];
   char copy_dir[1000];
 };
 
 
-//RESTORE + RESTORE PRINTS
+//TODO RESTORE
+//call different one if restore is activated
+//change call to backup
+//TO MAKE SURE YOU DONT RESTORE FOR NO REASON CHECK FILE MODIFIED DATE WITH STAT DATE.
+//copy previous backup functions
+//it's pretty much just reversing inputs
+//account for adding or removing .bak
+//DO NOT RESTORE .MYBACKUP.BAK OR MYBACKUP.BAK
+//change printf's for restore
+
 //also if you have time
-  //mutex locks on totals or use join output
+  //fix read()/write() to be more efficient
   //check for memory leaks
-  //check for bad file permissions
-  //confirm that totals are not overwriting each other and maybe use mutex locks on them
   //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
+
+
 
   void *backup_file(void * arguments){
     struct dir_struct *dirs = arguments;
     char *file = dirs->current_dir;
     char *copy_file = dirs->copy_dir;
-    printf("I am backing up this file -> %s \n", dirs->copy_dir);
     struct stat buf;
     if(stat(file, &buf) != 0) {
       printf("error with stating file %s \n", file);
@@ -63,12 +73,12 @@ struct dir_struct {
    fclose(target);
    printf("[thread %lu] Copied %d bytes from %s to %s \n", (unsigned long)pthread_self(), bytes, file, copy_file);
 
-
+   pthread_mutex_lock(&lockfilestats);
     //increment total bytes by bytes
     total_bytes += bytes;
     //increment total files by 1
     total_files += 1;
-
+    pthread_mutex_unlock(&lockfilestats);
     return NULL;
   }
 
@@ -106,7 +116,6 @@ void *backup_folder(void * arguments){
     //get location of new file by appending filename to copydir
     strcpy(tempcopydir, copy_dir);
     strcat( tempcopydir, &tempdir[strlen(dir)]);
-    printf("%s \n", tempdir);
     int len = strlen(tempdir);
     if (!strcmp(&tempdir[len-2],"..")){
       //printf("gotcha2 %s \n", &tempdir[len-2]);
@@ -151,7 +160,9 @@ void *backup_folder(void * arguments){
         else{
 
           mkdir(tempcopydir,S_IRWXU);
+          pthread_mutex_lock(&locksubdirstats);
           total_subdirectories++;
+          pthread_mutex_unlock(&locksubdirstats);
           struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
           strcpy(tempstruct->current_dir,tempdir);
           strcpy(tempstruct->copy_dir,tempcopydir);
@@ -225,9 +236,6 @@ void *backup_folder(void * arguments){
     }
 }
 
-
-
-
     //join all the threads one at a time
     int itr = 0;
     while (itr < size){
@@ -260,8 +268,21 @@ int main( int argc, char *argv[] ) {
         printf( "Wrong number of arguments" );
         return 1;
     }
-
+  int restore = 0;
+  if (argc > 1 && strcmp(argv[1],"-r")){
+    restore = 1;
+  }
   pthread_t thread;
+  if (pthread_mutex_init(&lockfilestats, NULL) != 0)
+{
+    printf("\n mutex init failed\n");
+    return 1;
+}
+  if (pthread_mutex_init(&locksubdirstats, NULL) != 0)
+  {
+    printf("\n mutex init failed\n");
+    return 1;
+  }
   //doesn't matter if .mybackup already exists. mkdir will return -1 if it doesnt
   mkdir(".mybackup",S_IRWXU);
   //struct dir_struct dirs;
@@ -290,6 +311,9 @@ int main( int argc, char *argv[] ) {
       exit( EXIT_FAILURE );
     }
     free(dirs);
+    pthread_mutex_destroy(&lockfilestats);
+    pthread_mutex_destroy(&locksubdirstats);
+
     if (total_subdirectories != 1){
       printf("successfully backed up %d files (%d bytes) and %d subdirectories \n", total_files, total_bytes, total_subdirectories);
     }
