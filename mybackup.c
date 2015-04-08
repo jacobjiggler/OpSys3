@@ -19,12 +19,16 @@ pthread_mutex_t lockfilestats;
 struct dir_struct {
   char current_dir[1000];
   char copy_dir[1000];
+  int print_type;
+  //0 =  dir, 1 = dir created, 2 = dir restored, 3 = file, 4 = file_restored
+
 };
 
 //also if you have time
+  //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
+
   //fix read()/write() to be more efficient
   //check for memory leaks
-  //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
 
 
 
@@ -72,8 +76,6 @@ struct dir_struct {
     }
 
 
-//TODO RESTORE
-//TO MAKE SURE YOU DONT BACKUP FOR NO REASON CHECK FILE MODIFIED DATE WITH STAT DATE.
 
 
 
@@ -90,7 +92,6 @@ struct dir_struct {
     char *copy_dir;
     dir = dirs->current_dir;
     copy_dir = dirs->copy_dir;
-    //printf("name of dirs passed into function: %s %s \n", dir, copy_dir);
     if ((strcmp(&dir[strlen(dir)-2],"..") ==0) || (strcmp(&copy_dir[strlen(copy_dir)-2],"..") == 0)){
       printf("gotcha1 \n");
       return 0;
@@ -197,8 +198,9 @@ struct dir_struct {
             if (len > 3){
               const char *last_four = &tempdir[len-4];
               if(!strcmp(".bak",last_four) && ((len < 12) || strcmp(&tempdir[len-12],"mybackup.bak")) && ((len < 12) || strcmp(&tempdir[len-14],"mybackup.c.bak"))){
-                tempcopydir[len-4] = '\0';
-                printf("%s \n", tempcopydir);
+                printf("tempcopydir %s \n", tempcopydir);
+                tempcopydir[strlen(tempcopydir)-4] = '\0';
+                printf("tempcopydir %s \n", tempcopydir);
                 if (stat(tempcopydir,&copybuf ) == 0){
                   printf("imagine I removed the file here \n");
                   //remove(tempcopydir);
@@ -209,7 +211,6 @@ struct dir_struct {
                 structs[size2] = tempstruct;
                 size2++;
                 pthread_t thread;
-                printf("[thread %lu] Restoring %s ...\n", (unsigned long)thread, &tempdir[strlen(dir) + 1]);
                 int rc = pthread_create( &thread, NULL, backup_file, (void *)tempstruct);
                 if ( rc != 0 )
                 {
@@ -218,13 +219,15 @@ struct dir_struct {
                            rc, strerror( rc ) );
                   return 0;
                 }
+                printf("[thread %lu] Restoring %s ...\n", (unsigned long)thread, &tempdir[strlen(dir) + 1]);
+
                 threads[size] = thread;
                 size++;
 
 
               }
               else {
-                printf("I didn't restore anything \n tempdir %s \n tempcopydir %s", tempdir, tempcopydir);
+                printf("I didn't restore anything \n tempdir %s \n tempcopydir %s \n", tempdir, tempcopydir);
               }
             }
           }
@@ -376,7 +379,7 @@ void *backup_folder(void * arguments){
           //its almost always > 3 because len also includes the directories before it
           if (len > 3){
             const char *last_four = &tempdir[len-4];
-            if(strcmp(".bak",last_four)){
+            if(strcmp(".bak",last_four) && ((len < 8) || strcmp(&tempdir[len-8],"mybackup"))){
               int already_exists = 0;
               strcat( tempcopydir, ".bak");
               if (stat(tempcopydir,&copybuf ) == 0){
@@ -451,7 +454,8 @@ int main( int argc, char *argv[] ) {
         return 1;
     }
   int restore = 0;
-  if (argc > 1 && strcmp(argv[1],"-r")){
+
+  if (argc > 1 && !strcmp(argv[1],"-r")){
     restore = 1;
   }
   pthread_t thread;
