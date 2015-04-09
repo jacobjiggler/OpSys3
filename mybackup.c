@@ -20,15 +20,11 @@ struct dir_struct {
   char current_dir[1000];
   char copy_dir[1000];
   int print_type;
-  //0 =  dir, 1 = dir created, 2 = dir restored, 3 = file, 4 = file_restored
-
+  int print_size;
+  //0 = unset, 1 =  dir, 2 = dir + created, 3 = dir restored, 4 = file, 5 = file_restored 6= file up to date 7 = file + created
 };
 
-//also if you have time
-  //redo created subdir prints by passing in a created_subdir bool and creating the subdir inside of the function instead of before
 
-  //fix read()/write() to be more efficient
-  //check for memory leaks
 
 
 
@@ -36,9 +32,30 @@ struct dir_struct {
       struct dir_struct *dirs = arguments;
       char *file = dirs->current_dir;
       char *copy_file = dirs->copy_dir;
+      if (dirs->print_type == 4){
+        printf("[thread %lu] Backing up %s...\n", (unsigned long)pthread_self(), &file[dirs->print_size]);
+      }
+      if(dirs->print_type == 5) {
+        printf("[thread %lu] Restoring %s...\n", (unsigned long)pthread_self(), &copy_file[dirs->print_size]);
+      }
+      if(dirs->print_type == 6){
+        printf("[thread %lu] Backup copy of %s is already up-to-date\n", (unsigned long)pthread_self(), &file[dirs->print_size]);
+        return 0;
+      }
+      if(dirs->print_type == 7){
+        printf("[thread %lu] Backing up %s...\n", (unsigned long)pthread_self(), &file[dirs->print_size]);
+
+        printf("[thread %lu] WARNING: %s exists (overwriting!) \n", (unsigned long)pthread_self(), &copy_file[dirs->print_size]);
+
+      }
+      if (dirs->print_type > 7 || dirs->print_type < 4){
+        printf("input error \n");
+        return 0;
+      }
+
       struct stat buf;
       if(stat(file, &buf) != 0) {
-        printf("error with stating file %s \n", file);
+        printf("error with stat'ing file %s \n", file);
       }
       int bytes = buf.st_size;
       char ch;
@@ -93,9 +110,18 @@ struct dir_struct {
     dir = dirs->current_dir;
     copy_dir = dirs->copy_dir;
     if ((strcmp(&dir[strlen(dir)-2],"..") ==0) || (strcmp(&copy_dir[strlen(copy_dir)-2],"..") == 0)){
-      printf("gotcha1 \n");
+      printf("Something went wrong \n");
       return 0;
     }
+    if (dirs->print_type == 3){
+      printf("[thread %lu] Restoring directory %s \n", (unsigned long)pthread_self(), &dir[dirs->print_size]);
+    }
+    if(dirs->print_type == 8){
+      printf("[thread %lu] Restoring directory %s \n", (unsigned long)pthread_self(), &dir[dirs->print_size]);
+      printf("[thread %lu] created directory %s \n", (unsigned long)pthread_self(), &dir[dirs->print_size]);
+
+    }
+
     if ((dfd = opendir(dir)) == NULL)
     {
      fprintf(stderr, "Can't open %s\n", dir);
@@ -115,7 +141,6 @@ struct dir_struct {
       strcat( tempcopydir, &tempdir[strlen(dir)]);
       int len = strlen(tempdir);
       if (!strcmp(&tempdir[len-2],"..")){
-        //printf("gotcha2 %s \n", &tempdir[len-2]);
         continue;
       }
 
@@ -138,6 +163,8 @@ struct dir_struct {
             struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
             strcpy(tempstruct->current_dir,tempdir);
             strcpy(tempstruct->copy_dir,tempcopydir);
+            tempstruct->print_type = 3;
+            tempstruct->print_size = strlen(dir) + 1;
             structs[size2] = tempstruct;
             size2++;
             pthread_t thread;
@@ -151,7 +178,6 @@ struct dir_struct {
             }
             threads[size] = thread;
             size++;
-            printf("[thread %lu] Restoring directory %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
           }
           //doesnt exist
           else{
@@ -163,6 +189,8 @@ struct dir_struct {
             struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
             strcpy(tempstruct->current_dir,tempdir);
             strcpy(tempstruct->copy_dir,tempcopydir);
+            tempstruct->print_type = 8;
+            tempstruct->print_size = strlen(dir) + 1;
             structs[size2] = tempstruct;
             size2++;
             pthread_t thread;
@@ -176,10 +204,6 @@ struct dir_struct {
             }
             threads[size] = thread;
             size++;
-            printf("[thread %lu] Restoring directory %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
-            printf("[thread %lu] created directory %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
-
-
           }
 
 
@@ -198,16 +222,15 @@ struct dir_struct {
             if (len > 3){
               const char *last_four = &tempdir[len-4];
               if(!strcmp(".bak",last_four) && ((len < 12) || strcmp(&tempdir[len-12],"mybackup.bak")) && ((len < 12) || strcmp(&tempdir[len-14],"mybackup.c.bak"))){
-                printf("tempcopydir %s \n", tempcopydir);
                 tempcopydir[strlen(tempcopydir)-4] = '\0';
-                printf("tempcopydir %s \n", tempcopydir);
                 if (stat(tempcopydir,&copybuf ) == 0){
-                  printf("imagine I removed the file here \n");
-                  //remove(tempcopydir);
+                  remove(tempcopydir);
                 }
                 struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
                 strcpy(tempstruct->current_dir,tempdir);
                 strcpy(tempstruct->copy_dir,tempcopydir);
+                tempstruct->print_type = 5;
+                tempstruct->print_size = strlen(copy_dir) + 1;
                 structs[size2] = tempstruct;
                 size2++;
                 pthread_t thread;
@@ -219,7 +242,6 @@ struct dir_struct {
                            rc, strerror( rc ) );
                   return 0;
                 }
-                printf("[thread %lu] Restoring %s ...\n", (unsigned long)thread, &tempdir[strlen(dir) + 1]);
 
                 threads[size] = thread;
                 size++;
@@ -227,7 +249,7 @@ struct dir_struct {
 
               }
               else {
-                printf("I didn't restore anything \n tempdir %s \n tempcopydir %s \n", tempdir, tempcopydir);
+                printf("ignored source file \n");
               }
             }
           }
@@ -272,11 +294,21 @@ void *backup_folder(void * arguments){
   char *copy_dir;
   dir = dirs->current_dir;
   copy_dir = dirs->copy_dir;
+
   //printf("name of dirs passed into function: %s %s \n", dir, copy_dir);
   if ((strcmp(&dir[strlen(dir)-2],"..") ==0) || (strcmp(&copy_dir[strlen(copy_dir)-2],"..") == 0)){
-    printf("gotcha1 \n");
     return 0;
   }
+  if (dirs->print_type == 1){
+    printf("[thread %lu] Backing up %s \n", (unsigned long)pthread_self(), &dir[dirs->print_size]);
+  }
+  if(dirs->print_type == 2){
+    printf("[thread %lu] Backing up %s \n", (unsigned long)pthread_self(), &dir[dirs->print_size]);
+    printf("[thread %lu] created %s \n", (unsigned long)pthread_self(), &dir[dirs->print_size]);
+
+  }
+
+
   if ((dfd = opendir(dir)) == NULL)
   {
    fprintf(stderr, "Can't open %s\n", dir);
@@ -296,7 +328,6 @@ void *backup_folder(void * arguments){
     strcat( tempcopydir, &tempdir[strlen(dir)]);
     int len = strlen(tempdir);
     if (!strcmp(&tempdir[len-2],"..")){
-      //printf("gotcha2 %s \n", &tempdir[len-2]);
       continue;
     }
 
@@ -319,6 +350,8 @@ void *backup_folder(void * arguments){
           struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
           strcpy(tempstruct->current_dir,tempdir);
           strcpy(tempstruct->copy_dir,tempcopydir);
+          tempstruct->print_type = 1;
+          tempstruct->print_size = strlen(dir) + 1;
           structs[size2] = tempstruct;
           size2++;
           pthread_t thread;
@@ -332,7 +365,6 @@ void *backup_folder(void * arguments){
           }
           threads[size] = thread;
           size++;
-          printf("[thread %lu] Backing up %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
         }
         //doesnt exist
         else{
@@ -344,6 +376,8 @@ void *backup_folder(void * arguments){
           struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
           strcpy(tempstruct->current_dir,tempdir);
           strcpy(tempstruct->copy_dir,tempcopydir);
+          tempstruct->print_type = 2;
+          tempstruct->print_size = strlen(dir) + 1;
           structs[size2] = tempstruct;
           size2++;
           pthread_t thread;
@@ -357,8 +391,6 @@ void *backup_folder(void * arguments){
           }
           threads[size] = thread;
           size++;
-          printf("[thread %lu] Backing up %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
-          printf("[thread %lu] created %s \n", (unsigned long)thread, &tempdir[strlen(dir)]);
 
 
         }
@@ -381,18 +413,34 @@ void *backup_folder(void * arguments){
             const char *last_four = &tempdir[len-4];
             if(strcmp(".bak",last_four) && ((len < 8) || strcmp(&tempdir[len-8],"mybackup"))){
               int already_exists = 0;
+              int uptodate = 0;
               strcat( tempcopydir, ".bak");
               if (stat(tempcopydir,&copybuf ) == 0){
                 if (copybuf.st_ctime > buf.st_ctime){
-                  printf("[thread %lu] Backup copy of %s is already up-to-date\n", (unsigned long)pthread_self(), &tempdir[strlen(dir) + 1]);
-                  continue;
+                  uptodate = 1;
+                }
+                else {
+                  remove(tempcopydir);
                 }
                 already_exists = 1;
-                remove(tempcopydir);
               }
               struct dir_struct* tempstruct = (struct dir_struct *)malloc(sizeof(struct dir_struct));
               strcpy(tempstruct->current_dir,tempdir);
               strcpy(tempstruct->copy_dir,tempcopydir);
+              if (!already_exists){
+                tempstruct->print_type = 4;
+                tempstruct->print_size = strlen(dir) + 1;
+              }
+              else{
+                if(uptodate){
+                  tempstruct->print_type = 6;
+                  tempstruct->print_size = strlen(dir) + 1;
+                }
+                else{
+                  tempstruct->print_type = 7;
+                  tempstruct->print_size = strlen(dir) + 1;
+                }
+            }
               structs[size2] = tempstruct;
               size2++;
               pthread_t thread;
@@ -409,10 +457,7 @@ void *backup_folder(void * arguments){
               }
               threads[size] = thread;
               size++;
-              printf("[thread %lu] Backing up %s ...\n", (unsigned long)thread, &tempdir[strlen(dir)+1]);
-              if (already_exists){
-                printf("[thread %lu] WARNING: %s exists (overwriting!) \n", (unsigned long)thread, &tempcopydir[strlen(dir)+1]);
-              }
+
 
             }
           }
@@ -474,11 +519,11 @@ int main( int argc, char *argv[] ) {
   //struct dir_struct dirs;
   struct dir_struct* dirs = (struct dir_struct *)malloc(sizeof(struct dir_struct));
   int rc = 1;
+  dirs->print_type = 0;
   if (restore == 0){
     getcwd(dirs->current_dir,1000);
     getcwd(dirs->copy_dir,1000);
     strcat(dirs->copy_dir, "/.mybackup");
-
 
     int rc = pthread_create( &thread, NULL, backup_folder, (void *)dirs);
     if ( rc != 0 )
